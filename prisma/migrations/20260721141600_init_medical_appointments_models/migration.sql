@@ -137,3 +137,28 @@ ALTER TABLE "Appointment" ADD CONSTRAINT "Appointment_patientId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "Appointment" ADD CONSTRAINT "Appointment_doctorId_fkey" FOREIGN KEY ("doctorId") REFERENCES "Doctor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- Application-level database constraints not expressible in Prisma schema
+ALTER TABLE "Availability"
+ADD CONSTRAINT "Availability_startTimeMinutes_range_check"
+CHECK ("startTimeMinutes" >= 0 AND "startTimeMinutes" < 1440);
+
+ALTER TABLE "Availability"
+ADD CONSTRAINT "Availability_endTimeMinutes_range_check"
+CHECK ("endTimeMinutes" > 0 AND "endTimeMinutes" <= 1440);
+
+ALTER TABLE "Availability"
+ADD CONSTRAINT "Availability_time_range_check"
+CHECK ("startTimeMinutes" < "endTimeMinutes");
+
+ALTER TABLE "Availability"
+ADD CONSTRAINT "Availability_slotDurationMinutes_positive_check"
+CHECK ("slotDurationMinutes" > 0);
+
+CREATE UNIQUE INDEX "Appointment_doctorId_scheduledAt_active_key"
+ON "Appointment" ("doctorId", "scheduledAt")
+WHERE "status" IN ('PENDING', 'CONFIRMED');
+
+CREATE UNIQUE INDEX "Appointment_patientId_scheduledAt_active_key"
+ON "Appointment" ("patientId", "scheduledAt")
+WHERE "status" IN ('PENDING', 'CONFIRMED');
