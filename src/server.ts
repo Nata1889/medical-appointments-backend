@@ -2,13 +2,31 @@ import { app } from "./app.js";
 import { env } from "./config/env.js";
 import { prisma } from "./config/prisma.js";
 
-const server = app.listen(env.PORT, () => {
-  console.log(`API running at http://localhost:${env.PORT}`);
-});
-
 let isShuttingDown = false;
 
-async function shutdown(signal: string): Promise<void> {
+const server = app
+  .listen(env.PORT, () => {
+    console.log(`API running at http://localhost:${env.PORT}`);
+  })
+  .on("error", (error) => {
+    console.error("Fatal error starting HTTP server:", error);
+    void shutdown("STARTUP_ERROR", 1);
+  });
+
+function closeHttpServer(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+}
+
+async function shutdown(signal: string, exitCode = 0): Promise<void> {
   if (isShuttingDown) {
     return;
   }
@@ -17,21 +35,27 @@ async function shutdown(signal: string): Promise<void> {
 
   console.log(`Received ${signal}. Closing application...`);
 
-  server.close(async (serverError) => {
-    try {
-      if (serverError) {
-        throw serverError;
-      }
+  let finalExitCode = exitCode;
 
-      await prisma.$disconnect();
+  try {
+    await closeHttpServer();
+  } catch (error) {
+    finalExitCode = 1;
+    console.error("Error closing the HTTP server:", error);
+  }
 
-      console.log("Application closed successfully.");
-      process.exit(0);
-    } catch (error) {
-      console.error("Error closing the application:", error);
-      process.exit(1);
-    }
-  });
+  try {
+    await prisma.$disconnect();
+  } catch (error) {
+    finalExitCode = 1;
+    console.error("Error disconnecting Prisma:", error);
+  }
+
+  if (finalExitCode === 0) {
+    console.log("Application closed successfully.");
+  }
+
+  process.exit(finalExitCode);
 }
 
 process.on("SIGINT", () => {

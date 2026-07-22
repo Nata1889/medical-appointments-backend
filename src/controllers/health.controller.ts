@@ -1,22 +1,15 @@
-import type { NextFunction, Request, Response } from "express";
+import type { Request, Response } from "express";
 
-import { checkDatabaseConnection } from "../services/database.service.js";
+import { env } from "../config/env.js";
 
-export async function getHealth(
+export function getHealth(
   _request: Request,
   response: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const database = await checkDatabaseConnection();
-
-    response.status(200).json({
-      status: "ok",
-      service: "medical-appointments-api",
-      database,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    next(error);
-  }
+): void {
+  response.status(200).json({
+    status: "ok",
+    service: "medical-appointments-api",
+    environment: env.NODE_ENV,
+    timestamp: new Date().toISOString(),
+  });
 }
