@@ -16,7 +16,18 @@ const environmentSchema = z.object({
 
   DATABASE_URL: z
     .string()
-    .min(1, "DATABASE_URL is required")
+    .min(1, "DATABASE_URL is required"),
+
+  JWT_ACCESS_SECRET: z
+    .string()
+    .min(32, "JWT_ACCESS_SECRET must be at least 32 characters"),
+
+  JWT_ACCESS_EXPIRES_IN: z
+    .string()
+    .regex(
+      /^[1-9]\d*[smhd]$/,
+      "JWT_ACCESS_EXPIRES_IN must be a duration like 15m, 1h, 7d, or 30s",
+    )
 });
 
 const result = environmentSchema.safeParse(process.env);
