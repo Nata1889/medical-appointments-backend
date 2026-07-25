@@ -1,14 +1,53 @@
+import cors from "cors";
 import express from "express";
+import type { Request, Response } from "express";
+import helmet from "helmet";
+import morgan from "morgan";
 
+import { env } from "./config/env.js";
+import { AppError } from "./errors/app-error.js";
 import { errorHandler } from "./middlewares/error-handler.middleware.js";
 import { notFound } from "./middlewares/not-found.middleware.js";
+import { requestId } from "./middlewares/request-id.middleware.js";
 import { healthRouter } from "./routes/health.routes.js";
 
 export const app = express();
 
 app.disable("x-powered-by");
 
-app.use(express.json());
+morgan.token<Request, Response>("request-id", (request) => request.requestId);
+
+app.use(requestId);
+app.use(helmet());
+app.use(
+  cors({
+    credentials: true,
+    origin(origin, callback) {
+      if (!origin || origin === env.FRONTEND_URL) {
+        callback(null, true);
+        return;
+      }
+
+      callback(
+        new AppError({
+          statusCode: 403,
+          code: "CORS_ORIGIN_NOT_ALLOWED",
+          message: "CORS origin is not allowed",
+        }),
+      );
+    },
+  }),
+);
+
+if (env.NODE_ENV !== "test") {
+  app.use(morgan(":request-id :method :url :status :response-time ms"));
+}
+
+app.use(
+  express.json({
+    limit: env.JSON_BODY_LIMIT,
+  }),
+);
 
 app.use("/health", healthRouter);
 

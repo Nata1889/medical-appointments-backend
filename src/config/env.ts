@@ -10,6 +10,10 @@ const environmentSchema = z.object({
     .positive()
     .max(65535),
 
+  FRONTEND_URL: z.string().url(),
+
+  JSON_BODY_LIMIT: z.string().min(1, "JSON_BODY_LIMIT is required"),
+
   DATABASE_URL: z
     .string()
     .min(1, "DATABASE_URL is required")
