@@ -1,7 +1,12 @@
 import type { Request, Response } from "express";
 
+import { AppError } from "../errors/app-error.js";
 import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
-import { loginUser, registerUser } from "../services/auth.service.js";
+import {
+  getCurrentUser as getCurrentUserService,
+  loginUser,
+  registerUser,
+} from "../services/auth.service.js";
 import { validationErrorFromZod } from "../utils/zod-error.js";
 
 export async function register(
@@ -35,5 +40,24 @@ export async function login(
 
   response.status(200).json({
     data: session,
+  });
+}
+
+export async function getCurrentUser(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  if (!request.user) {
+    throw new AppError({
+      statusCode: 401,
+      code: "UNAUTHORIZED",
+      message: "Authentication required",
+    });
+  }
+
+  const user = await getCurrentUserService(request.user.userId);
+
+  response.status(200).json({
+    data: user,
   });
 }

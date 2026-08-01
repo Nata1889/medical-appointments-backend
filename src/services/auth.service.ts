@@ -40,6 +40,15 @@ function invalidCredentialsError(): AppError {
   });
 }
 
+function authenticationRequiredError(): AppError {
+  return new AppError({
+    statusCode: 401,
+    code: "UNAUTHORIZED",
+    message: "Authentication required",
+    details: null,
+  });
+}
+
 function isEmailUniqueConstraintError(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
     return false;
@@ -142,4 +151,26 @@ export async function loginUser(input: LoginInput) {
     user: safeUser,
     accessToken,
   };
+}
+
+export async function getCurrentUser(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: userId,
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      role: true,
+      isActive: true,
+    },
+  });
+
+  if (!user || !user.isActive) {
+    throw authenticationRequiredError();
+  }
+
+  return user;
 }
