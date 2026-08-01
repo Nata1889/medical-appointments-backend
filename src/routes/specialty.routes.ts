@@ -4,6 +4,7 @@ import {
   createSpecialty,
   getSpecialties,
   getSpecialtyById,
+  updateSpecialty,
 } from "../controllers/specialty.controller.js";
 import { UserRole } from "../generated/prisma/client.js";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
@@ -21,6 +22,13 @@ specialtyRouter.get(
   "/:id",
   authenticate,
   getSpecialtyById,
+);
+
+specialtyRouter.patch(
+  "/:id",
+  authenticate,
+  authorize(UserRole.ADMIN),
+  updateSpecialty,
 );
 
 specialtyRouter.post(

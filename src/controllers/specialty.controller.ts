@@ -3,11 +3,13 @@ import type { Request, Response } from "express";
 import {
   createSpecialtySchema,
   specialtyIdParamsSchema,
+  updateSpecialtySchema,
 } from "../schemas/specialty.schema.js";
 import {
   createSpecialty as createSpecialtyService,
   getSpecialties as getSpecialtiesService,
   getSpecialtyById as getSpecialtyByIdService,
+  updateSpecialty as updateSpecialtyService,
 } from "../services/specialty.service.js";
 import { validationErrorFromZod } from "../utils/zod-error.js";
 
@@ -50,6 +52,29 @@ export async function getSpecialtyById(
   }
 
   const specialty = await getSpecialtyByIdService(result.data.id);
+
+  response.status(200).json({
+    data: specialty,
+  });
+}
+
+export async function updateSpecialty(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const paramsResult = specialtyIdParamsSchema.safeParse(request.params);
+
+  if (!paramsResult.success) {
+    throw validationErrorFromZod(paramsResult.error);
+  }
+
+  const bodyResult = updateSpecialtySchema.safeParse(request.body);
+
+  if (!bodyResult.success) {
+    throw validationErrorFromZod(bodyResult.error);
+  }
+
+  const specialty = await updateSpecialtyService(paramsResult.data.id, bodyResult.data);
 
   response.status(200).json({
     data: specialty,

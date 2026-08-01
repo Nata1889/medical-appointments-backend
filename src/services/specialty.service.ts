@@ -1,6 +1,9 @@
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
-import type { CreateSpecialtyInput } from "../schemas/specialty.schema.js";
+import type {
+  CreateSpecialtyInput,
+  UpdateSpecialtyInput,
+} from "../schemas/specialty.schema.js";
 
 const specialtySelect = {
   id: true,
@@ -77,4 +80,46 @@ export async function getSpecialtyById(id: string) {
   }
 
   return specialty;
+}
+
+export async function updateSpecialty(id: string, input: UpdateSpecialtyInput) {
+  const specialty = await prisma.specialty.findUnique({
+    where: {
+      id,
+    },
+    select: specialtySelect,
+  });
+
+  if (!specialty) {
+    throw specialtyNotFoundError();
+  }
+
+  if (input.name !== undefined && input.name !== specialty.name) {
+    const existingSpecialty = await prisma.specialty.findUnique({
+      where: {
+        name: input.name,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existingSpecialty) {
+      throw specialtyAlreadyExistsError();
+    }
+  }
+
+  const data = {
+    ...(input.name !== undefined ? { name: input.name } : {}),
+    ...(input.description !== undefined ? { description: input.description } : {}),
+    ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+  };
+
+  return prisma.specialty.update({
+    where: {
+      id,
+    },
+    data,
+    select: specialtySelect,
+  });
 }
