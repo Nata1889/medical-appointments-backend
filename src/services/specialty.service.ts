@@ -1,0 +1,44 @@
+import { prisma } from "../config/prisma.js";
+import { AppError } from "../errors/app-error.js";
+import type { CreateSpecialtyInput } from "../schemas/specialty.schema.js";
+
+const specialtySelect = {
+  id: true,
+  name: true,
+  description: true,
+  isActive: true,
+} as const;
+
+function specialtyAlreadyExistsError(): AppError {
+  return new AppError({
+    statusCode: 409,
+    code: "SPECIALTY_ALREADY_EXISTS",
+    message: "A specialty with this name already exists",
+  });
+}
+
+export async function createSpecialty(input: CreateSpecialtyInput) {
+  const existingSpecialty = await prisma.specialty.findUnique({
+    where: {
+      name: input.name,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingSpecialty) {
+    throw specialtyAlreadyExistsError();
+  }
+
+  const data = {
+    name: input.name,
+    isActive: true,
+    ...(input.description !== undefined ? { description: input.description } : {}),
+  };
+
+  return prisma.specialty.create({
+    data,
+    select: specialtySelect,
+  });
+}
