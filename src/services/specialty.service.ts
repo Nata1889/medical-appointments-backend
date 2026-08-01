@@ -17,6 +17,15 @@ function specialtyAlreadyExistsError(): AppError {
   });
 }
 
+function specialtyNotFoundError(): AppError {
+  return new AppError({
+    statusCode: 404,
+    code: "SPECIALTY_NOT_FOUND",
+    message: "Specialty not found",
+    details: null,
+  });
+}
+
 export async function createSpecialty(input: CreateSpecialtyInput) {
   const existingSpecialty = await prisma.specialty.findUnique({
     where: {
@@ -53,4 +62,19 @@ export async function getSpecialties() {
     },
     select: specialtySelect,
   });
+}
+
+export async function getSpecialtyById(id: string) {
+  const specialty = await prisma.specialty.findUnique({
+    where: {
+      id,
+    },
+    select: specialtySelect,
+  });
+
+  if (!specialty || !specialty.isActive) {
+    throw specialtyNotFoundError();
+  }
+
+  return specialty;
 }

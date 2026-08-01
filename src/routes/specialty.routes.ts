@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   createSpecialty,
   getSpecialties,
+  getSpecialtyById,
 } from "../controllers/specialty.controller.js";
 import { UserRole } from "../generated/prisma/client.js";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
@@ -14,6 +15,12 @@ specialtyRouter.get(
   "/",
   authenticate,
   getSpecialties,
+);
+
+specialtyRouter.get(
+  "/:id",
+  authenticate,
+  getSpecialtyById,
 );
 
 specialtyRouter.post(

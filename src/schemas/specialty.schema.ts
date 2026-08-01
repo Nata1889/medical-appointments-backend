@@ -14,4 +14,11 @@ export const createSpecialtySchema = z
   })
   .strict();
 
+export const specialtyIdParamsSchema = z
+  .object({
+    id: z.string({ error: "Specialty ID is required" }).uuid("Specialty ID must be a valid UUID"),
+  })
+  .strict();
+
 export type CreateSpecialtyInput = z.infer<typeof createSpecialtySchema>;
+export type SpecialtyIdParams = z.infer<typeof specialtyIdParamsSchema>;
