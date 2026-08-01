@@ -42,3 +42,15 @@ export async function createSpecialty(input: CreateSpecialtyInput) {
     select: specialtySelect,
   });
 }
+
+export async function getSpecialties() {
+  return prisma.specialty.findMany({
+    where: {
+      isActive: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+    select: specialtySelect,
+  });
+}
