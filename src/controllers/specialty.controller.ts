@@ -7,6 +7,7 @@ import {
 } from "../schemas/specialty.schema.js";
 import {
   createSpecialty as createSpecialtyService,
+  deleteSpecialty as deleteSpecialtyService,
   getSpecialties as getSpecialtiesService,
   getSpecialtyById as getSpecialtyByIdService,
   updateSpecialty as updateSpecialtyService,
@@ -75,6 +76,23 @@ export async function updateSpecialty(
   }
 
   const specialty = await updateSpecialtyService(paramsResult.data.id, bodyResult.data);
+
+  response.status(200).json({
+    data: specialty,
+  });
+}
+
+export async function deleteSpecialty(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const result = specialtyIdParamsSchema.safeParse(request.params);
+
+  if (!result.success) {
+    throw validationErrorFromZod(result.error);
+  }
+
+  const specialty = await deleteSpecialtyService(result.data.id);
 
   response.status(200).json({
     data: specialty,

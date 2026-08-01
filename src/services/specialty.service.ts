@@ -123,3 +123,30 @@ export async function updateSpecialty(id: string, input: UpdateSpecialtyInput) {
     select: specialtySelect,
   });
 }
+
+export async function deleteSpecialty(id: string) {
+  const specialty = await prisma.specialty.findUnique({
+    where: {
+      id,
+    },
+    select: specialtySelect,
+  });
+
+  if (!specialty) {
+    throw specialtyNotFoundError();
+  }
+
+  if (!specialty.isActive) {
+    return specialty;
+  }
+
+  return prisma.specialty.update({
+    where: {
+      id,
+    },
+    data: {
+      isActive: false,
+    },
+    select: specialtySelect,
+  });
+}

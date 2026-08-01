@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   createSpecialty,
+  deleteSpecialty,
   getSpecialties,
   getSpecialtyById,
   updateSpecialty,
@@ -29,6 +30,13 @@ specialtyRouter.patch(
   authenticate,
   authorize(UserRole.ADMIN),
   updateSpecialty,
+);
+
+specialtyRouter.delete(
+  "/:id",
+  authenticate,
+  authorize(UserRole.ADMIN),
+  deleteSpecialty,
 );
 
 specialtyRouter.post(
