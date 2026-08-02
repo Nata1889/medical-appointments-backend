@@ -10,6 +10,7 @@ import { errorHandler } from "./middlewares/error-handler.middleware.js";
 import { notFound } from "./middlewares/not-found.middleware.js";
 import { requestId } from "./middlewares/request-id.middleware.js";
 import { authRouter } from "./routes/auth.routes.js";
+import { doctorRouter } from "./routes/doctor.routes.js";
 import { healthRouter } from "./routes/health.routes.js";
 import { specialtyRouter } from "./routes/specialty.routes.js";
 
@@ -53,6 +54,7 @@ app.use(
 
 app.use("/health", healthRouter);
 app.use("/auth", authRouter);
+app.use("/doctors", doctorRouter);
 app.use("/specialties", specialtyRouter);
 
 app.use(notFound);
