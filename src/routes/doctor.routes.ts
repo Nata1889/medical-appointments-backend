@@ -4,6 +4,7 @@ import {
   createDoctor,
   getDoctorById,
   getDoctors,
+  updateDoctor,
 } from "../controllers/doctor.controller.js";
 import { UserRole } from "../generated/prisma/client.js";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
@@ -21,6 +22,13 @@ doctorRouter.get(
   "/:id",
   authenticate,
   getDoctorById,
+);
+
+doctorRouter.patch(
+  "/:id",
+  authenticate,
+  authorize(UserRole.ADMIN),
+  updateDoctor,
 );
 
 doctorRouter.post(

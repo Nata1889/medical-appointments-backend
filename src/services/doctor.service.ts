@@ -1,7 +1,10 @@
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
 import { UserRole } from "../generated/prisma/client.js";
-import type { CreateDoctorInput } from "../schemas/doctor.schema.js";
+import type {
+  CreateDoctorInput,
+  UpdateDoctorInput,
+} from "../schemas/doctor.schema.js";
 
 const doctorSelect = {
   id: true,
@@ -69,7 +72,30 @@ function doctorLicenseAlreadyExistsError(): AppError {
     statusCode: 409,
     code: "DOCTOR_LICENSE_ALREADY_EXISTS",
     message: "A doctor with this professional license already exists",
+    details: null,
   });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isProfessionalLicenseUniqueConstraintError(error: unknown): boolean {
+  if (!isRecord(error) || error.code !== "P2002") {
+    return false;
+  }
+
+  const target = isRecord(error.meta) ? error.meta.target : undefined;
+
+  if (Array.isArray(target) && target.includes("professionalLicense")) {
+    return true;
+  }
+
+  if (typeof target === "string" && target.includes("professionalLicense")) {
+    return true;
+  }
+
+  return typeof error.message === "string" && error.message.includes("professionalLicense");
 }
 
 function doctorNotFoundError(): AppError {
@@ -227,4 +253,93 @@ export async function getDoctorById(id: string) {
   }
 
   return formatDoctor(doctor);
+}
+
+export async function updateDoctor(id: string, input: UpdateDoctorInput) {
+  const doctor = await prisma.doctor.findUnique({
+    where: {
+      id,
+    },
+    select: {
+      id: true,
+      professionalLicense: true,
+    },
+  });
+
+  if (!doctor) {
+    throw doctorNotFoundError();
+  }
+
+  if (
+    input.professionalLicense !== undefined &&
+    input.professionalLicense !== doctor.professionalLicense
+  ) {
+    const existingDoctorWithLicense = await prisma.doctor.findFirst({
+      where: {
+        professionalLicense: input.professionalLicense,
+        id: {
+          not: id,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existingDoctorWithLicense) {
+      throw doctorLicenseAlreadyExistsError();
+    }
+  }
+
+  if (input.specialtyId !== undefined) {
+    const specialty = await prisma.specialty.findFirst({
+      where: {
+        id: input.specialtyId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!specialty) {
+      throw specialtyNotFoundError();
+    }
+  }
+
+  const data: {
+    specialtyId?: string;
+    professionalLicense?: string;
+    isActive?: boolean;
+  } = {};
+
+  if (input.specialtyId !== undefined) {
+    data.specialtyId = input.specialtyId;
+  }
+
+  if (input.professionalLicense !== undefined) {
+    data.professionalLicense = input.professionalLicense;
+  }
+
+  if (input.isActive !== undefined) {
+    data.isActive = input.isActive;
+  }
+
+  try {
+    const updatedDoctor = await prisma.doctor.update({
+      where: {
+        id,
+      },
+      data,
+      select: doctorListSelect,
+    });
+
+    return formatDoctor(updatedDoctor);
+  } catch (error) {
+    if (isProfessionalLicenseUniqueConstraintError(error)) {
+      throw doctorLicenseAlreadyExistsError();
+    }
+
+    throw error;
+  }
 }
