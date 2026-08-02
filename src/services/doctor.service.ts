@@ -72,6 +72,43 @@ function doctorLicenseAlreadyExistsError(): AppError {
   });
 }
 
+function doctorNotFoundError(): AppError {
+  return new AppError({
+    statusCode: 404,
+    code: "DOCTOR_NOT_FOUND",
+    message: "Doctor not found",
+    details: null,
+  });
+}
+
+function formatDoctor(doctor: {
+  id: string;
+  userId: string;
+  professionalLicense: string;
+  isActive: boolean;
+  user: {
+    firstName: string;
+    lastName: string;
+  };
+  specialty: {
+    id: string;
+    name: string;
+  };
+}) {
+  return {
+    id: doctor.id,
+    userId: doctor.userId,
+    firstName: doctor.user.firstName,
+    lastName: doctor.user.lastName,
+    specialty: {
+      id: doctor.specialty.id,
+      name: doctor.specialty.name,
+    },
+    professionalLicense: doctor.professionalLicense,
+    isActive: doctor.isActive,
+  };
+}
+
 export async function createDoctor(input: CreateDoctorInput) {
   const user = await prisma.user.findUnique({
     where: {
@@ -167,16 +204,27 @@ export async function getDoctors() {
     select: doctorListSelect,
   });
 
-  return doctors.map((doctor) => ({
-    id: doctor.id,
-    userId: doctor.userId,
-    firstName: doctor.user.firstName,
-    lastName: doctor.user.lastName,
-    specialty: {
-      id: doctor.specialty.id,
-      name: doctor.specialty.name,
+  return doctors.map(formatDoctor);
+}
+
+export async function getDoctorById(id: string) {
+  const doctor = await prisma.doctor.findFirst({
+    where: {
+      id,
+      isActive: true,
+      user: {
+        isActive: true,
+      },
+      specialty: {
+        isActive: true,
+      },
     },
-    professionalLicense: doctor.professionalLicense,
-    isActive: doctor.isActive,
-  }));
+    select: doctorListSelect,
+  });
+
+  if (!doctor) {
+    throw doctorNotFoundError();
+  }
+
+  return formatDoctor(doctor);
 }

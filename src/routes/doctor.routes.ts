@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   createDoctor,
+  getDoctorById,
   getDoctors,
 } from "../controllers/doctor.controller.js";
 import { UserRole } from "../generated/prisma/client.js";
@@ -14,6 +15,12 @@ doctorRouter.get(
   "/",
   authenticate,
   getDoctors,
+);
+
+doctorRouter.get(
+  "/:id",
+  authenticate,
+  getDoctorById,
 );
 
 doctorRouter.post(

@@ -1,8 +1,12 @@
 import type { Request, Response } from "express";
 
-import { createDoctorSchema } from "../schemas/doctor.schema.js";
+import {
+  createDoctorSchema,
+  doctorIdParamsSchema,
+} from "../schemas/doctor.schema.js";
 import {
   createDoctor as createDoctorService,
+  getDoctorById as getDoctorByIdService,
   getDoctors as getDoctorsService,
 } from "../services/doctor.service.js";
 import { validationErrorFromZod } from "../utils/zod-error.js";
@@ -15,6 +19,23 @@ export async function getDoctors(
 
   response.status(200).json({
     data: doctors,
+  });
+}
+
+export async function getDoctorById(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const result = doctorIdParamsSchema.safeParse(request.params);
+
+  if (!result.success) {
+    throw validationErrorFromZod(result.error);
+  }
+
+  const doctor = await getDoctorByIdService(result.data.id);
+
+  response.status(200).json({
+    data: doctor,
   });
 }
 

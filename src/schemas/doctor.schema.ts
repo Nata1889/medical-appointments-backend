@@ -14,4 +14,11 @@ export const createDoctorSchema = z
   })
   .strict();
 
+export const doctorIdParamsSchema = z
+  .object({
+    id: z.string({ error: "Doctor ID is required" }).uuid("Doctor ID must be a valid UUID"),
+  })
+  .strict();
+
 export type CreateDoctorInput = z.infer<typeof createDoctorSchema>;
+export type DoctorIdParams = z.infer<typeof doctorIdParamsSchema>;
