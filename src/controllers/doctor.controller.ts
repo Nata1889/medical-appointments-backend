@@ -1,8 +1,22 @@
 import type { Request, Response } from "express";
 
 import { createDoctorSchema } from "../schemas/doctor.schema.js";
-import { createDoctor as createDoctorService } from "../services/doctor.service.js";
+import {
+  createDoctor as createDoctorService,
+  getDoctors as getDoctorsService,
+} from "../services/doctor.service.js";
 import { validationErrorFromZod } from "../utils/zod-error.js";
+
+export async function getDoctors(
+  _request: Request,
+  response: Response,
+): Promise<void> {
+  const doctors = await getDoctorsService();
+
+  response.status(200).json({
+    data: doctors,
+  });
+}
 
 export async function createDoctor(
   request: Request,

@@ -11,6 +11,25 @@ const doctorSelect = {
   isActive: true,
 } as const;
 
+const doctorListSelect = {
+  id: true,
+  userId: true,
+  professionalLicense: true,
+  isActive: true,
+  user: {
+    select: {
+      firstName: true,
+      lastName: true,
+    },
+  },
+  specialty: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+} as const;
+
 function userNotFoundError(): AppError {
   return new AppError({
     statusCode: 404,
@@ -120,4 +139,44 @@ export async function createDoctor(input: CreateDoctorInput) {
     },
     select: doctorSelect,
   });
+}
+
+export async function getDoctors() {
+  const doctors = await prisma.doctor.findMany({
+    where: {
+      isActive: true,
+      user: {
+        isActive: true,
+      },
+      specialty: {
+        isActive: true,
+      },
+    },
+    orderBy: [
+      {
+        user: {
+          lastName: "asc",
+        },
+      },
+      {
+        user: {
+          firstName: "asc",
+        },
+      },
+    ],
+    select: doctorListSelect,
+  });
+
+  return doctors.map((doctor) => ({
+    id: doctor.id,
+    userId: doctor.userId,
+    firstName: doctor.user.firstName,
+    lastName: doctor.user.lastName,
+    specialty: {
+      id: doctor.specialty.id,
+      name: doctor.specialty.name,
+    },
+    professionalLicense: doctor.professionalLicense,
+    isActive: doctor.isActive,
+  }));
 }
