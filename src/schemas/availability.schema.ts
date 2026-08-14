@@ -41,4 +41,12 @@ export const createAvailabilitySchema = z
     },
   );
 
+export const getAvailabilitiesQuerySchema = z
+  .object({
+    doctorId: z.string().uuid("Doctor ID must be a valid UUID").optional(),
+    weekDay: z.enum(WeekDay, { error: "Week day must be valid" }).optional(),
+  })
+  .strict();
+
 export type CreateAvailabilityInput = z.infer<typeof createAvailabilitySchema>;
+export type GetAvailabilitiesQuery = z.infer<typeof getAvailabilitiesQuerySchema>;

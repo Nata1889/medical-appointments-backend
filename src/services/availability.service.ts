@@ -1,6 +1,10 @@
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
-import type { CreateAvailabilityInput } from "../schemas/availability.schema.js";
+import { WeekDay } from "../generated/prisma/client.js";
+import type {
+  CreateAvailabilityInput,
+  GetAvailabilitiesQuery,
+} from "../schemas/availability.schema.js";
 
 const availabilitySelect = {
   id: true,
@@ -10,6 +14,16 @@ const availabilitySelect = {
   endTimeMinutes: true,
   slotDurationMinutes: true,
 } as const;
+
+const weekDayOrder: Record<WeekDay, number> = {
+  [WeekDay.MONDAY]: 0,
+  [WeekDay.TUESDAY]: 1,
+  [WeekDay.WEDNESDAY]: 2,
+  [WeekDay.THURSDAY]: 3,
+  [WeekDay.FRIDAY]: 4,
+  [WeekDay.SATURDAY]: 5,
+  [WeekDay.SUNDAY]: 6,
+};
 
 function doctorNotFoundError(): AppError {
   return new AppError({
@@ -73,5 +87,31 @@ export async function createAvailability(input: CreateAvailabilityInput) {
   return prisma.availability.create({
     data: input,
     select: availabilitySelect,
+  });
+}
+
+export async function getAvailabilities(filters: GetAvailabilitiesQuery) {
+  const availabilities = await prisma.availability.findMany({
+    where: {
+      ...(filters.doctorId === undefined ? {} : { doctorId: filters.doctorId }),
+      ...(filters.weekDay === undefined ? {} : { weekDay: filters.weekDay }),
+    },
+    select: availabilitySelect,
+  });
+
+  return availabilities.sort((left, right) => {
+    const weekDayComparison = weekDayOrder[left.weekDay] - weekDayOrder[right.weekDay];
+
+    if (weekDayComparison !== 0) {
+      return weekDayComparison;
+    }
+
+    const startTimeComparison = left.startTimeMinutes - right.startTimeMinutes;
+
+    if (startTimeComparison !== 0) {
+      return startTimeComparison;
+    }
+
+    return left.endTimeMinutes - right.endTimeMinutes;
   });
 }
