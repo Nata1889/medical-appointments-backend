@@ -43,6 +43,15 @@ function availabilityOverlapError(): AppError {
   });
 }
 
+function availabilityNotFoundError(): AppError {
+  return new AppError({
+    statusCode: 404,
+    code: "AVAILABILITY_NOT_FOUND",
+    message: "Availability not found",
+    details: null,
+  });
+}
+
 export async function createAvailability(input: CreateAvailabilityInput) {
   const doctor = await prisma.doctor.findFirst({
     where: {
@@ -114,4 +123,19 @@ export async function getAvailabilities(filters: GetAvailabilitiesQuery) {
 
     return left.endTimeMinutes - right.endTimeMinutes;
   });
+}
+
+export async function getAvailabilityById(id: string) {
+  const availability = await prisma.availability.findUnique({
+    where: {
+      id,
+    },
+    select: availabilitySelect,
+  });
+
+  if (!availability) {
+    throw availabilityNotFoundError();
+  }
+
+  return availability;
 }

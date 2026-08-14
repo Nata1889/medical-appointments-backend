@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   createAvailability,
   getAvailabilities,
+  getAvailabilityById,
 } from "../controllers/availability.controller.js";
 import { UserRole } from "../generated/prisma/client.js";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
@@ -14,6 +15,12 @@ availabilityRouter.get(
   "/",
   authenticate,
   getAvailabilities,
+);
+
+availabilityRouter.get(
+  "/:id",
+  authenticate,
+  getAvailabilityById,
 );
 
 availabilityRouter.post(

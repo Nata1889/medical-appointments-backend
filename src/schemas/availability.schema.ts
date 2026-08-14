@@ -48,5 +48,11 @@ export const getAvailabilitiesQuerySchema = z
   })
   .strict();
 
+export const availabilityIdParamsSchema = z
+  .object({
+    id: z.string({ error: "Availability ID is required" }).uuid("Availability ID must be a valid UUID"),
+  })
+  .strict();
+
 export type CreateAvailabilityInput = z.infer<typeof createAvailabilitySchema>;
 export type GetAvailabilitiesQuery = z.infer<typeof getAvailabilitiesQuerySchema>;

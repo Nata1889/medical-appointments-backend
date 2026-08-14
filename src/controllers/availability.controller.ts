@@ -1,12 +1,14 @@
 import type { Request, Response } from "express";
 
 import {
+  availabilityIdParamsSchema,
   createAvailabilitySchema,
   getAvailabilitiesQuerySchema,
 } from "../schemas/availability.schema.js";
 import {
   createAvailability as createAvailabilityService,
   getAvailabilities as getAvailabilitiesService,
+  getAvailabilityById as getAvailabilityByIdService,
 } from "../services/availability.service.js";
 import { validationErrorFromZod } from "../utils/zod-error.js";
 
@@ -24,6 +26,23 @@ export async function getAvailabilities(
 
   response.status(200).json({
     data: availabilities,
+  });
+}
+
+export async function getAvailabilityById(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const result = availabilityIdParamsSchema.safeParse(request.params);
+
+  if (!result.success) {
+    throw validationErrorFromZod(result.error);
+  }
+
+  const availability = await getAvailabilityByIdService(result.data.id);
+
+  response.status(200).json({
+    data: availability,
   });
 }
 
