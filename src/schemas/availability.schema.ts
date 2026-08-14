@@ -54,5 +54,33 @@ export const availabilityIdParamsSchema = z
   })
   .strict();
 
+export const updateAvailabilitySchema = z
+  .object({
+    doctorId: z.string().uuid("Doctor ID must be a valid UUID").optional(),
+    weekDay: z.enum(WeekDay, { error: "Week day must be valid" }).optional(),
+    startTimeMinutes: z
+      .number({ error: "Start time must be a number" })
+      .int("Start time must be an integer")
+      .min(0, "Start time must be at least 0")
+      .max(1439, "Start time must be at most 1439")
+      .optional(),
+    endTimeMinutes: z
+      .number({ error: "End time must be a number" })
+      .int("End time must be an integer")
+      .min(1, "End time must be at least 1")
+      .max(1440, "End time must be at most 1440")
+      .optional(),
+    slotDurationMinutes: z
+      .number({ error: "Slot duration must be a number" })
+      .int("Slot duration must be an integer")
+      .positive("Slot duration must be greater than 0")
+      .optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one field must be provided",
+  });
+
 export type CreateAvailabilityInput = z.infer<typeof createAvailabilitySchema>;
 export type GetAvailabilitiesQuery = z.infer<typeof getAvailabilitiesQuerySchema>;
+export type UpdateAvailabilityInput = z.infer<typeof updateAvailabilitySchema>;

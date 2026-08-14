@@ -4,6 +4,7 @@ import {
   createAvailability,
   getAvailabilities,
   getAvailabilityById,
+  updateAvailability,
 } from "../controllers/availability.controller.js";
 import { UserRole } from "../generated/prisma/client.js";
 import { authenticate } from "../middlewares/authenticate.middleware.js";
@@ -21,6 +22,13 @@ availabilityRouter.get(
   "/:id",
   authenticate,
   getAvailabilityById,
+);
+
+availabilityRouter.patch(
+  "/:id",
+  authenticate,
+  authorize(UserRole.ADMIN),
+  updateAvailability,
 );
 
 availabilityRouter.post(

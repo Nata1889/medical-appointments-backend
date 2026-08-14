@@ -1,10 +1,13 @@
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
 import { WeekDay } from "../generated/prisma/client.js";
-import type {
-  CreateAvailabilityInput,
-  GetAvailabilitiesQuery,
+import {
+  createAvailabilitySchema,
+  type CreateAvailabilityInput,
+  type GetAvailabilitiesQuery,
+  type UpdateAvailabilityInput,
 } from "../schemas/availability.schema.js";
+import { validationErrorFromZod } from "../utils/zod-error.js";
 
 const availabilitySelect = {
   id: true,
@@ -138,4 +141,110 @@ export async function getAvailabilityById(id: string) {
   }
 
   return availability;
+}
+
+export async function updateAvailability(id: string, input: UpdateAvailabilityInput) {
+  const availability = await prisma.availability.findUnique({
+    where: {
+      id,
+    },
+    select: availabilitySelect,
+  });
+
+  if (!availability) {
+    throw availabilityNotFoundError();
+  }
+
+  const nextAvailability = {
+    doctorId: input.doctorId ?? availability.doctorId,
+    weekDay: input.weekDay ?? availability.weekDay,
+    startTimeMinutes: input.startTimeMinutes ?? availability.startTimeMinutes,
+    endTimeMinutes: input.endTimeMinutes ?? availability.endTimeMinutes,
+    slotDurationMinutes: input.slotDurationMinutes ?? availability.slotDurationMinutes,
+  };
+
+  const doctor = await prisma.doctor.findFirst({
+    where: {
+      id: nextAvailability.doctorId,
+      isActive: true,
+      user: {
+        isActive: true,
+      },
+      specialty: {
+        isActive: true,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!doctor) {
+    throw doctorNotFoundError();
+  }
+
+  const finalStateResult = createAvailabilitySchema.safeParse(nextAvailability);
+
+  if (!finalStateResult.success) {
+    throw validationErrorFromZod(finalStateResult.error);
+  }
+
+  const overlappingAvailability = await prisma.availability.findFirst({
+    where: {
+      doctorId: nextAvailability.doctorId,
+      weekDay: nextAvailability.weekDay,
+      id: {
+        not: id,
+      },
+      startTimeMinutes: {
+        lt: nextAvailability.endTimeMinutes,
+      },
+      endTimeMinutes: {
+        gt: nextAvailability.startTimeMinutes,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (overlappingAvailability) {
+    throw availabilityOverlapError();
+  }
+
+  const data: {
+    doctorId?: string;
+    weekDay?: WeekDay;
+    startTimeMinutes?: number;
+    endTimeMinutes?: number;
+    slotDurationMinutes?: number;
+  } = {};
+
+  if (input.doctorId !== undefined) {
+    data.doctorId = input.doctorId;
+  }
+
+  if (input.weekDay !== undefined) {
+    data.weekDay = input.weekDay;
+  }
+
+  if (input.startTimeMinutes !== undefined) {
+    data.startTimeMinutes = input.startTimeMinutes;
+  }
+
+  if (input.endTimeMinutes !== undefined) {
+    data.endTimeMinutes = input.endTimeMinutes;
+  }
+
+  if (input.slotDurationMinutes !== undefined) {
+    data.slotDurationMinutes = input.slotDurationMinutes;
+  }
+
+  return prisma.availability.update({
+    where: {
+      id,
+    },
+    data,
+    select: availabilitySelect,
+  });
 }
