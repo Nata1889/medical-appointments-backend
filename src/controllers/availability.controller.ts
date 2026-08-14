@@ -8,6 +8,7 @@ import {
 } from "../schemas/availability.schema.js";
 import {
   createAvailability as createAvailabilityService,
+  deleteAvailability as deleteAvailabilityService,
   getAvailabilities as getAvailabilitiesService,
   getAvailabilityById as getAvailabilityByIdService,
   updateAvailability as updateAvailabilityService,
@@ -65,6 +66,23 @@ export async function updateAvailability(
   }
 
   const availability = await updateAvailabilityService(paramsResult.data.id, bodyResult.data);
+
+  response.status(200).json({
+    data: availability,
+  });
+}
+
+export async function deleteAvailability(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const result = availabilityIdParamsSchema.safeParse(request.params);
+
+  if (!result.success) {
+    throw validationErrorFromZod(result.error);
+  }
+
+  const availability = await deleteAvailabilityService(result.data.id);
 
   response.status(200).json({
     data: availability,

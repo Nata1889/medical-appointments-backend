@@ -248,3 +248,14 @@ export async function updateAvailability(id: string, input: UpdateAvailabilityIn
     select: availabilitySelect,
   });
 }
+
+export async function deleteAvailability(id: string) {
+  await getAvailabilityById(id);
+
+  return prisma.availability.delete({
+    where: {
+      id,
+    },
+    select: availabilitySelect,
+  });
+}

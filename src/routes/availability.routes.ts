@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   createAvailability,
+  deleteAvailability,
   getAvailabilities,
   getAvailabilityById,
   updateAvailability,
@@ -29,6 +30,13 @@ availabilityRouter.patch(
   authenticate,
   authorize(UserRole.ADMIN),
   updateAvailability,
+);
+
+availabilityRouter.delete(
+  "/:id",
+  authenticate,
+  authorize(UserRole.ADMIN),
+  deleteAvailability,
 );
 
 availabilityRouter.post(
