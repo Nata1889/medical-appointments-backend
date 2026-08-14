@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import {
   createDoctor,
+  deleteDoctor,
   getDoctorById,
   getDoctors,
   updateDoctor,
@@ -29,6 +30,13 @@ doctorRouter.patch(
   authenticate,
   authorize(UserRole.ADMIN),
   updateDoctor,
+);
+
+doctorRouter.delete(
+  "/:id",
+  authenticate,
+  authorize(UserRole.ADMIN),
+  deleteDoctor,
 );
 
 doctorRouter.post(

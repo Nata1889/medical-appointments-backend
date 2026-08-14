@@ -343,3 +343,32 @@ export async function updateDoctor(id: string, input: UpdateDoctorInput) {
     throw error;
   }
 }
+
+export async function deleteDoctor(id: string) {
+  const doctor = await prisma.doctor.findUnique({
+    where: {
+      id,
+    },
+    select: doctorListSelect,
+  });
+
+  if (!doctor) {
+    throw doctorNotFoundError();
+  }
+
+  if (!doctor.isActive) {
+    return formatDoctor(doctor);
+  }
+
+  const deletedDoctor = await prisma.doctor.update({
+    where: {
+      id,
+    },
+    data: {
+      isActive: false,
+    },
+    select: doctorListSelect,
+  });
+
+  return formatDoctor(deletedDoctor);
+}
