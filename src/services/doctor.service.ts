@@ -1,6 +1,7 @@
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
-import { UserRole } from "../generated/prisma/client.js";
+import { AppointmentStatus, UserRole } from "../generated/prisma/client.js";
+import type { GetAppointmentsQuery } from "../schemas/appointment.schema.js";
 import type {
   CreateDoctorInput,
   UpdateDoctorInput,
@@ -29,6 +30,25 @@ const doctorListSelect = {
     select: {
       id: true,
       name: true,
+    },
+  },
+} as const;
+
+const doctorAppointmentSelect = {
+  id: true,
+  scheduledAt: true,
+  reason: true,
+  status: true,
+  createdAt: true,
+  patient: {
+    select: {
+      id: true,
+      user: {
+        select: {
+          firstName: true,
+          lastName: true,
+        },
+      },
     },
   },
 } as const;
@@ -107,6 +127,15 @@ function doctorNotFoundError(): AppError {
   });
 }
 
+function doctorProfileNotFoundError(): AppError {
+  return new AppError({
+    statusCode: 409,
+    code: "DOCTOR_PROFILE_NOT_FOUND",
+    message: "Doctor profile not found for authenticated user",
+    details: null,
+  });
+}
+
 function formatDoctor(doctor: {
   id: string;
   userId: string;
@@ -132,6 +161,51 @@ function formatDoctor(doctor: {
     },
     professionalLicense: doctor.professionalLicense,
     isActive: doctor.isActive,
+  };
+}
+
+async function getAuthenticatedDoctor(authenticatedUserId: string) {
+  const doctor = await prisma.doctor.findUnique({
+    where: {
+      userId: authenticatedUserId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!doctor) {
+    throw doctorProfileNotFoundError();
+  }
+
+  return doctor;
+}
+
+function formatDoctorAppointment(appointment: {
+  id: string;
+  scheduledAt: Date;
+  reason: string | null;
+  status: AppointmentStatus;
+  createdAt: Date;
+  patient: {
+    id: string;
+    user: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+}) {
+  return {
+    id: appointment.id,
+    scheduledAt: appointment.scheduledAt,
+    reason: appointment.reason,
+    status: appointment.status,
+    createdAt: appointment.createdAt,
+    patient: {
+      id: appointment.patient.id,
+      firstName: appointment.patient.user.firstName,
+      lastName: appointment.patient.user.lastName,
+    },
   };
 }
 
@@ -253,6 +327,44 @@ export async function getDoctorById(id: string) {
   }
 
   return formatDoctor(doctor);
+}
+
+export async function getAuthenticatedDoctorAppointments(
+  authenticatedUserId: string,
+  filters: GetAppointmentsQuery,
+) {
+  const doctor = await getAuthenticatedDoctor(authenticatedUserId);
+  const scheduledAtFilter: {
+    gte?: Date;
+    lte?: Date;
+  } = {};
+
+  if (filters.from !== undefined) {
+    scheduledAtFilter.gte = new Date(filters.from);
+  }
+
+  if (filters.to !== undefined) {
+    scheduledAtFilter.lte = new Date(filters.to);
+  }
+
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      doctorId: doctor.id,
+      ...(filters.status === undefined ? {} : { status: filters.status }),
+      ...(Object.keys(scheduledAtFilter).length === 0 ? {} : { scheduledAt: scheduledAtFilter }),
+    },
+    orderBy: [
+      {
+        scheduledAt: "asc",
+      },
+      {
+        createdAt: "asc",
+      },
+    ],
+    select: doctorAppointmentSelect,
+  });
+
+  return appointments.map(formatDoctorAppointment);
 }
 
 export async function updateDoctor(id: string, input: UpdateDoctorInput) {

@@ -1,5 +1,7 @@
 import type { Request, Response } from "express";
 
+import { AppError } from "../errors/app-error.js";
+import { getAppointmentsQuerySchema } from "../schemas/appointment.schema.js";
 import {
   createDoctorSchema,
   doctorIdParamsSchema,
@@ -8,11 +10,21 @@ import {
 import {
   createDoctor as createDoctorService,
   deleteDoctor as deleteDoctorService,
+  getAuthenticatedDoctorAppointments as getAuthenticatedDoctorAppointmentsService,
   getDoctorById as getDoctorByIdService,
   getDoctors as getDoctorsService,
   updateDoctor as updateDoctorService,
 } from "../services/doctor.service.js";
 import { validationErrorFromZod } from "../utils/zod-error.js";
+
+function authenticationRequiredError(): AppError {
+  return new AppError({
+    statusCode: 401,
+    code: "UNAUTHORIZED",
+    message: "Authentication required",
+    details: null,
+  });
+}
 
 export async function getDoctors(
   _request: Request,
@@ -39,6 +51,30 @@ export async function getDoctorById(
 
   response.status(200).json({
     data: doctor,
+  });
+}
+
+export async function getDoctorAppointments(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const result = getAppointmentsQuerySchema.safeParse(request.query);
+
+  if (!result.success) {
+    throw validationErrorFromZod(result.error);
+  }
+
+  if (!request.user) {
+    throw authenticationRequiredError();
+  }
+
+  const appointments = await getAuthenticatedDoctorAppointmentsService(
+    request.user.userId,
+    result.data,
+  );
+
+  response.status(200).json({
+    data: appointments,
   });
 }
 
