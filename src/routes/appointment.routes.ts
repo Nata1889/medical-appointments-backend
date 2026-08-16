@@ -1,8 +1,9 @@
 import { Router } from "express";
 
 import {
-  getAppointmentById,
+  cancelAppointment,
   createAppointment,
+  getAppointmentById,
   getAppointments,
 } from "../controllers/appointment.controller.js";
 import { UserRole } from "../generated/prisma/client.js";
@@ -23,6 +24,13 @@ appointmentRouter.get(
   authenticate,
   authorize(UserRole.PATIENT),
   getAppointmentById,
+);
+
+appointmentRouter.patch(
+  "/:id/cancel",
+  authenticate,
+  authorize(UserRole.PATIENT),
+  cancelAppointment,
 );
 
 appointmentRouter.post(

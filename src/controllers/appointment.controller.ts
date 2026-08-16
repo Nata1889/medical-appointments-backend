@@ -7,6 +7,7 @@ import {
   getAppointmentsQuerySchema,
 } from "../schemas/appointment.schema.js";
 import {
+  cancelPatientAppointment as cancelPatientAppointmentService,
   createAppointment as createAppointmentService,
   getPatientAppointmentById as getPatientAppointmentByIdService,
   getPatientAppointments as getPatientAppointmentsService,
@@ -79,6 +80,30 @@ export async function getAppointmentById(
   }
 
   const appointment = await getPatientAppointmentByIdService(
+    request.user.userId,
+    paramsResult.data.id,
+  );
+
+  response.status(200).json({
+    data: appointment,
+  });
+}
+
+export async function cancelAppointment(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const paramsResult = appointmentIdParamsSchema.safeParse(request.params);
+
+  if (!paramsResult.success) {
+    throw validationErrorFromZod(paramsResult.error);
+  }
+
+  if (!request.user) {
+    throw authenticationRequiredError();
+  }
+
+  const appointment = await cancelPatientAppointmentService(
     request.user.userId,
     paramsResult.data.id,
   );

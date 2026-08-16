@@ -171,6 +171,15 @@ function appointmentSlotUnavailableError(): AppError {
   });
 }
 
+function appointmentCannotBeCancelledError(): AppError {
+  return new AppError({
+    statusCode: 409,
+    code: "APPOINTMENT_CANNOT_BE_CANCELLED",
+    message: "Appointment cannot be cancelled in its current status",
+    details: null,
+  });
+}
+
 function getAppointmentLocalTime(scheduledAt: Date): {
   weekDay: WeekDay;
   minuteOfDay: number;
@@ -394,4 +403,50 @@ export async function getPatientAppointmentById(
   }
 
   return formatAppointmentPublicItem(appointment);
+}
+
+export async function cancelPatientAppointment(
+  authenticatedUserId: string,
+  appointmentId: string,
+) {
+  const patient = await getAuthenticatedPatient(authenticatedUserId);
+
+  const appointment = await prisma.appointment.findFirst({
+    where: {
+      id: appointmentId,
+      patientId: patient.id,
+    },
+    select: appointmentListSelect,
+  });
+
+  if (!appointment) {
+    throw appointmentNotFoundError();
+  }
+
+  if (appointment.status === AppointmentStatus.CANCELLED) {
+    return formatAppointmentPublicItem(appointment);
+  }
+
+  if (
+    appointment.status !== AppointmentStatus.PENDING &&
+    appointment.status !== AppointmentStatus.CONFIRMED
+  ) {
+    throw appointmentCannotBeCancelledError();
+  }
+
+  if (appointment.scheduledAt.getTime() <= Date.now()) {
+    throw appointmentCannotBeCancelledError();
+  }
+
+  const cancelledAppointment = await prisma.appointment.update({
+    where: {
+      id: appointment.id,
+    },
+    data: {
+      status: AppointmentStatus.CANCELLED,
+    },
+    select: appointmentListSelect,
+  });
+
+  return formatAppointmentPublicItem(cancelledAppointment);
 }
