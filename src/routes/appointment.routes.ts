@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import {
+  getAppointmentById,
   createAppointment,
   getAppointments,
 } from "../controllers/appointment.controller.js";
@@ -15,6 +16,13 @@ appointmentRouter.get(
   authenticate,
   authorize(UserRole.PATIENT),
   getAppointments,
+);
+
+appointmentRouter.get(
+  "/:id",
+  authenticate,
+  authorize(UserRole.PATIENT),
+  getAppointmentById,
 );
 
 appointmentRouter.post(

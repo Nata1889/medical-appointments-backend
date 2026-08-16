@@ -97,5 +97,12 @@ export const getAppointmentsQuerySchema = z
     },
   );
 
+export const appointmentIdParamsSchema = z
+  .object({
+    id: z.string({ error: "Appointment ID is required" }).uuid("Appointment ID must be a valid UUID"),
+  })
+  .strict();
+
 export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
 export type GetAppointmentsQuery = z.infer<typeof getAppointmentsQuerySchema>;
+export type AppointmentIdParams = z.infer<typeof appointmentIdParamsSchema>;

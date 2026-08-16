@@ -97,7 +97,7 @@ async function getAuthenticatedPatient(authenticatedUserId: string) {
   return patient;
 }
 
-function formatAppointmentListItem(appointment: {
+function formatAppointmentPublicItem(appointment: {
   id: string;
   scheduledAt: Date;
   reason: string | null;
@@ -133,6 +133,15 @@ function formatAppointmentListItem(appointment: {
     },
     createdAt: appointment.createdAt,
   };
+}
+
+function appointmentNotFoundError(): AppError {
+  return new AppError({
+    statusCode: 404,
+    code: "APPOINTMENT_NOT_FOUND",
+    message: "Appointment not found",
+    details: null,
+  });
 }
 
 function doctorNotFoundError(): AppError {
@@ -363,5 +372,26 @@ export async function getPatientAppointments(
     select: appointmentListSelect,
   });
 
-  return appointments.map(formatAppointmentListItem);
+  return appointments.map(formatAppointmentPublicItem);
+}
+
+export async function getPatientAppointmentById(
+  authenticatedUserId: string,
+  appointmentId: string,
+) {
+  const patient = await getAuthenticatedPatient(authenticatedUserId);
+
+  const appointment = await prisma.appointment.findFirst({
+    where: {
+      id: appointmentId,
+      patientId: patient.id,
+    },
+    select: appointmentListSelect,
+  });
+
+  if (!appointment) {
+    throw appointmentNotFoundError();
+  }
+
+  return formatAppointmentPublicItem(appointment);
 }
