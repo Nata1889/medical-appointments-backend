@@ -9,6 +9,7 @@ import { AppError } from "./errors/app-error.js";
 import { errorHandler } from "./middlewares/error-handler.middleware.js";
 import { notFound } from "./middlewares/not-found.middleware.js";
 import { requestId } from "./middlewares/request-id.middleware.js";
+import { appointmentRouter } from "./routes/appointment.routes.js";
 import { availabilityRouter } from "./routes/availability.routes.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { doctorRouter } from "./routes/doctor.routes.js";
@@ -55,6 +56,7 @@ app.use(
 
 app.use("/health", healthRouter);
 app.use("/auth", authRouter);
+app.use("/appointments", appointmentRouter);
 app.use("/doctors", doctorRouter);
 app.use("/availabilities", availabilityRouter);
 app.use("/specialties", specialtyRouter);
