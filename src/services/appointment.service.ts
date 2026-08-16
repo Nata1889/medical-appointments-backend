@@ -1,7 +1,10 @@
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
 import { AppointmentStatus, Prisma, WeekDay } from "../generated/prisma/client.js";
-import type { CreateAppointmentInput } from "../schemas/appointment.schema.js";
+import type {
+  CreateAppointmentInput,
+  GetAppointmentsQuery,
+} from "../schemas/appointment.schema.js";
 
 const APPOINTMENT_TIME_ZONE = "America/Argentina/Cordoba";
 const ACTIVE_APPOINTMENT_STATUSES = [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] as const;
@@ -18,6 +21,32 @@ const appointmentSelect = {
   reason: true,
   status: true,
   createdAt: true,
+} as const;
+
+const appointmentListSelect = {
+  id: true,
+  scheduledAt: true,
+  reason: true,
+  status: true,
+  createdAt: true,
+  doctor: {
+    select: {
+      id: true,
+      professionalLicense: true,
+      user: {
+        select: {
+          firstName: true,
+          lastName: true,
+        },
+      },
+      specialty: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  },
 } as const;
 
 const weekDayByName: Record<string, WeekDay> = {
@@ -46,6 +75,64 @@ function patientProfileNotFoundError(): AppError {
     message: "Patient profile not found for authenticated user",
     details: null,
   });
+}
+
+async function getAuthenticatedPatient(authenticatedUserId: string) {
+  const patient = await prisma.patient.findFirst({
+    where: {
+      userId: authenticatedUserId,
+      user: {
+        isActive: true,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!patient) {
+    throw patientProfileNotFoundError();
+  }
+
+  return patient;
+}
+
+function formatAppointmentListItem(appointment: {
+  id: string;
+  scheduledAt: Date;
+  reason: string | null;
+  status: AppointmentStatus;
+  createdAt: Date;
+  doctor: {
+    id: string;
+    professionalLicense: string;
+    user: {
+      firstName: string;
+      lastName: string;
+    };
+    specialty: {
+      id: string;
+      name: string;
+    };
+  };
+}) {
+  return {
+    id: appointment.id,
+    scheduledAt: appointment.scheduledAt,
+    reason: appointment.reason,
+    status: appointment.status,
+    doctor: {
+      id: appointment.doctor.id,
+      firstName: appointment.doctor.user.firstName,
+      lastName: appointment.doctor.user.lastName,
+      professionalLicense: appointment.doctor.professionalLicense,
+      specialty: {
+        id: appointment.doctor.specialty.id,
+        name: appointment.doctor.specialty.name,
+      },
+    },
+    createdAt: appointment.createdAt,
+  };
 }
 
 function doctorNotFoundError(): AppError {
@@ -136,21 +223,7 @@ export async function createAppointment(input: CreateAppointmentInput, authentic
     throw appointmentInPastError();
   }
 
-  const patient = await prisma.patient.findFirst({
-    where: {
-      userId: authenticatedUserId,
-      user: {
-        isActive: true,
-      },
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!patient) {
-    throw patientProfileNotFoundError();
-  }
+  const patient = await getAuthenticatedPatient(authenticatedUserId);
 
   const doctor = await prisma.doctor.findFirst({
     where: {
@@ -252,4 +325,43 @@ export async function createAppointment(input: CreateAppointmentInput, authentic
 
     throw error;
   }
+}
+
+export async function getPatientAppointments(
+  authenticatedUserId: string,
+  filters: GetAppointmentsQuery,
+) {
+  const patient = await getAuthenticatedPatient(authenticatedUserId);
+
+  const scheduledAtFilter: {
+    gte?: Date;
+    lte?: Date;
+  } = {};
+
+  if (filters.from !== undefined) {
+    scheduledAtFilter.gte = new Date(filters.from);
+  }
+
+  if (filters.to !== undefined) {
+    scheduledAtFilter.lte = new Date(filters.to);
+  }
+
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      patientId: patient.id,
+      ...(filters.status === undefined ? {} : { status: filters.status }),
+      ...(Object.keys(scheduledAtFilter).length === 0 ? {} : { scheduledAt: scheduledAtFilter }),
+    },
+    orderBy: [
+      {
+        scheduledAt: "asc",
+      },
+      {
+        createdAt: "asc",
+      },
+    ],
+    select: appointmentListSelect,
+  });
+
+  return appointments.map(formatAppointmentListItem);
 }

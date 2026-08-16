@@ -1,9 +1,11 @@
 import { z } from "zod";
 
+import { AppointmentStatus } from "../generated/prisma/client.js";
+
 const isoDateTimeWithOffsetPattern =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2})$/;
 
-function isValidIsoDateTimeWithOffset(value: string): boolean {
+export function isValidIsoDateTimeWithOffset(value: string): boolean {
   const match = isoDateTimeWithOffsetPattern.exec(value);
 
   if (!match) {
@@ -68,4 +70,32 @@ export const createAppointmentSchema = z
   })
   .strict();
 
+export const getAppointmentsQuerySchema = z
+  .object({
+    status: z.enum(AppointmentStatus, { error: "Appointment status must be valid" }).optional(),
+    from: z
+      .string({ error: "From date must be a string" })
+      .refine(isValidIsoDateTimeWithOffset, "From date must be a valid ISO datetime with timezone")
+      .optional(),
+    to: z
+      .string({ error: "To date must be a string" })
+      .refine(isValidIsoDateTimeWithOffset, "To date must be a valid ISO datetime with timezone")
+      .optional(),
+  })
+  .strict()
+  .refine(
+    (value) => {
+      if (value.from === undefined || value.to === undefined) {
+        return true;
+      }
+
+      return new Date(value.from).getTime() <= new Date(value.to).getTime();
+    },
+    {
+      message: "From date must be before or equal to to date",
+      path: ["from"],
+    },
+  );
+
 export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
+export type GetAppointmentsQuery = z.infer<typeof getAppointmentsQuerySchema>;
