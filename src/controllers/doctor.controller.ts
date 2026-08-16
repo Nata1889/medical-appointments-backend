@@ -1,7 +1,10 @@
 import type { Request, Response } from "express";
 
 import { AppError } from "../errors/app-error.js";
-import { getAppointmentsQuerySchema } from "../schemas/appointment.schema.js";
+import {
+  appointmentIdParamsSchema,
+  getAppointmentsQuerySchema,
+} from "../schemas/appointment.schema.js";
 import {
   createDoctorSchema,
   doctorIdParamsSchema,
@@ -10,6 +13,7 @@ import {
 import {
   createDoctor as createDoctorService,
   deleteDoctor as deleteDoctorService,
+  getAuthenticatedDoctorAppointmentById as getAuthenticatedDoctorAppointmentByIdService,
   getAuthenticatedDoctorAppointments as getAuthenticatedDoctorAppointmentsService,
   getDoctorById as getDoctorByIdService,
   getDoctors as getDoctorsService,
@@ -75,6 +79,30 @@ export async function getDoctorAppointments(
 
   response.status(200).json({
     data: appointments,
+  });
+}
+
+export async function getDoctorAppointmentById(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const paramsResult = appointmentIdParamsSchema.safeParse(request.params);
+
+  if (!paramsResult.success) {
+    throw validationErrorFromZod(paramsResult.error);
+  }
+
+  if (!request.user) {
+    throw authenticationRequiredError();
+  }
+
+  const appointment = await getAuthenticatedDoctorAppointmentByIdService(
+    request.user.userId,
+    paramsResult.data.id,
+  );
+
+  response.status(200).json({
+    data: appointment,
   });
 }
 

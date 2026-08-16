@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   createDoctor,
   deleteDoctor,
+  getDoctorAppointmentById,
   getDoctorAppointments,
   getDoctorById,
   getDoctors,
@@ -25,6 +26,13 @@ doctorRouter.get(
   authenticate,
   authorize(UserRole.DOCTOR),
   getDoctorAppointments,
+);
+
+doctorRouter.get(
+  "/me/appointments/:id",
+  authenticate,
+  authorize(UserRole.DOCTOR),
+  getDoctorAppointmentById,
 );
 
 doctorRouter.get(

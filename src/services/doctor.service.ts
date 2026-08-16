@@ -136,6 +136,15 @@ function doctorProfileNotFoundError(): AppError {
   });
 }
 
+function appointmentNotFoundError(): AppError {
+  return new AppError({
+    statusCode: 404,
+    code: "APPOINTMENT_NOT_FOUND",
+    message: "Appointment not found",
+    details: null,
+  });
+}
+
 function formatDoctor(doctor: {
   id: string;
   userId: string;
@@ -365,6 +374,27 @@ export async function getAuthenticatedDoctorAppointments(
   });
 
   return appointments.map(formatDoctorAppointment);
+}
+
+export async function getAuthenticatedDoctorAppointmentById(
+  authenticatedUserId: string,
+  appointmentId: string,
+) {
+  const doctor = await getAuthenticatedDoctor(authenticatedUserId);
+
+  const appointment = await prisma.appointment.findFirst({
+    where: {
+      id: appointmentId,
+      doctorId: doctor.id,
+    },
+    select: doctorAppointmentSelect,
+  });
+
+  if (!appointment) {
+    throw appointmentNotFoundError();
+  }
+
+  return formatDoctorAppointment(appointment);
 }
 
 export async function updateDoctor(id: string, input: UpdateDoctorInput) {
