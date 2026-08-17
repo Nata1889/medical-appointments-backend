@@ -1,6 +1,8 @@
+import bcrypt from "bcrypt";
+
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
-import { AppointmentStatus, UserRole } from "../generated/prisma/client.js";
+import { AppointmentStatus, Prisma, UserRole } from "../generated/prisma/client.js";
 import type {
   GetAppointmentsQuery,
   UpdateDoctorAppointmentStatusInput,
@@ -9,6 +11,8 @@ import type {
   CreateDoctorInput,
   UpdateDoctorInput,
 } from "../schemas/doctor.schema.js";
+
+const PASSWORD_SALT_ROUNDS = 12;
 
 const doctorSelect = {
   id: true,
@@ -99,6 +103,14 @@ function doctorLicenseAlreadyExistsError(): AppError {
   });
 }
 
+function emailAlreadyRegisteredError(): AppError {
+  return new AppError({
+    statusCode: 409,
+    code: "EMAIL_ALREADY_REGISTERED",
+    message: "An account with this email already exists",
+  });
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -119,6 +131,24 @@ function isProfessionalLicenseUniqueConstraintError(error: unknown): boolean {
   }
 
   return typeof error.message === "string" && error.message.includes("professionalLicense");
+}
+
+function isEmailUniqueConstraintError(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
+    return false;
+  }
+
+  const target = error.meta?.target;
+
+  if (Array.isArray(target)) {
+    return target.includes("email");
+  }
+
+  if (typeof target === "string") {
+    return target.includes("email");
+  }
+
+  return error.message.includes("email");
 }
 
 function doctorNotFoundError(): AppError {
@@ -214,6 +244,32 @@ function formatDoctor(doctor: {
   };
 }
 
+function formatCreatedDoctor(doctor: {
+  id: string;
+  professionalLicense: string;
+  isActive: boolean;
+  user: {
+    firstName: string;
+    lastName: string;
+  };
+  specialty: {
+    id: string;
+    name: string;
+  };
+}) {
+  return {
+    id: doctor.id,
+    firstName: doctor.user.firstName,
+    lastName: doctor.user.lastName,
+    specialty: {
+      id: doctor.specialty.id,
+      name: doctor.specialty.name,
+    },
+    professionalLicense: doctor.professionalLicense,
+    isActive: doctor.isActive,
+  };
+}
+
 async function getAuthenticatedDoctor(authenticatedUserId: string) {
   const doctor = await prisma.doctor.findFirst({
     where: {
@@ -261,40 +317,10 @@ function formatDoctorAppointment(appointment: {
 }
 
 export async function createDoctor(input: CreateDoctorInput) {
-  const user = await prisma.user.findUnique({
-    where: {
-      id: input.userId,
-    },
-    select: {
-      id: true,
-      role: true,
-    },
-  });
-
-  if (!user) {
-    throw userNotFoundError();
-  }
-
-  if (user.role !== UserRole.DOCTOR) {
-    throw userIsNotDoctorError();
-  }
-
-  const existingDoctorForUser = await prisma.doctor.findUnique({
-    where: {
-      userId: input.userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (existingDoctorForUser) {
-    throw doctorAlreadyExistsError();
-  }
-
-  const specialty = await prisma.specialty.findUnique({
+  const specialty = await prisma.specialty.findFirst({
     where: {
       id: input.specialtyId,
+      isActive: true,
     },
     select: {
       id: true,
@@ -303,6 +329,19 @@ export async function createDoctor(input: CreateDoctorInput) {
 
   if (!specialty) {
     throw specialtyNotFoundError();
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      email: input.email,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingUser) {
+    throw emailAlreadyRegisteredError();
   }
 
   const existingDoctorWithLicense = await prisma.doctor.findUnique({
@@ -318,15 +357,47 @@ export async function createDoctor(input: CreateDoctorInput) {
     throw doctorLicenseAlreadyExistsError();
   }
 
-  return prisma.doctor.create({
-    data: {
-      userId: input.userId,
-      specialtyId: input.specialtyId,
-      professionalLicense: input.professionalLicense,
-      isActive: true,
-    },
-    select: doctorSelect,
-  });
+  const passwordHash = await bcrypt.hash(input.password, PASSWORD_SALT_ROUNDS);
+
+  try {
+    const doctor = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email,
+          passwordHash,
+          role: UserRole.DOCTOR,
+          isActive: true,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      return tx.doctor.create({
+        data: {
+          userId: user.id,
+          specialtyId: input.specialtyId,
+          professionalLicense: input.professionalLicense,
+          isActive: true,
+        },
+        select: doctorListSelect,
+      });
+    });
+
+    return formatCreatedDoctor(doctor);
+  } catch (error) {
+    if (isEmailUniqueConstraintError(error)) {
+      throw emailAlreadyRegisteredError();
+    }
+
+    if (isProfessionalLicenseUniqueConstraintError(error)) {
+      throw doctorLicenseAlreadyExistsError();
+    }
+
+    throw error;
+  }
 }
 
 export async function getDoctors() {

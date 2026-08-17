@@ -1,8 +1,13 @@
 import { z } from "zod";
 
+import { registerSchema } from "./auth.schema.js";
+
 export const createDoctorSchema = z
   .object({
-    userId: z.string({ error: "User ID is required" }).uuid("User ID must be a valid UUID"),
+    firstName: registerSchema.shape.firstName,
+    lastName: registerSchema.shape.lastName,
+    email: registerSchema.shape.email,
+    password: registerSchema.shape.password,
     specialtyId: z
       .string({ error: "Specialty ID is required" })
       .uuid("Specialty ID must be a valid UUID"),
