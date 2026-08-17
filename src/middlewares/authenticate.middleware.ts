@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
 import { env } from "../config/env.js";
+import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
 import { UserRole } from "../generated/prisma/client.js";
 
@@ -56,6 +57,10 @@ export function authenticate(
   _response: Response,
   next: NextFunction,
 ): void {
+  void authenticateRequest(request, next);
+}
+
+async function authenticateRequest(request: Request, next: NextFunction): Promise<void> {
   try {
     const token = parseBearerToken(request.get("authorization"));
     const payload = jwt.verify(token, env.JWT_ACCESS_SECRET, {
@@ -72,9 +77,24 @@ export function authenticate(
       throw invalidAuthenticationTokenError();
     }
 
+    const user = await prisma.user.findUnique({
+      where: {
+        id: payload.sub,
+      },
+      select: {
+        id: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    if (!user || !user.isActive || user.role !== payload.role) {
+      throw authenticationRequiredError();
+    }
+
     request.user = {
-      userId: payload.sub,
-      role: payload.role,
+      userId: user.id,
+      role: user.role,
     };
 
     next();
@@ -89,6 +109,11 @@ export function authenticate(
       return;
     }
 
-    next(invalidAuthenticationTokenError());
+    if (error instanceof jwt.JsonWebTokenError) {
+      next(invalidAuthenticationTokenError());
+      return;
+    }
+
+    next(error);
   }
 }

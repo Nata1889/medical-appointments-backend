@@ -215,9 +215,10 @@ function formatDoctor(doctor: {
 }
 
 async function getAuthenticatedDoctor(authenticatedUserId: string) {
-  const doctor = await prisma.doctor.findUnique({
+  const doctor = await prisma.doctor.findFirst({
     where: {
       userId: authenticatedUserId,
+      isActive: true,
     },
     select: {
       id: true,
