@@ -1,13 +1,15 @@
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
-import { AppointmentStatus, Prisma, WeekDay } from "../generated/prisma/client.js";
+import { AppointmentStatus, Prisma } from "../generated/prisma/client.js";
 import type {
   CreateAppointmentInput,
   GetAppointmentsQuery,
 } from "../schemas/appointment.schema.js";
+import {
+  ACTIVE_APPOINTMENT_STATUSES,
+  getAppointmentLocalTime,
+} from "../utils/appointment-time.js";
 
-const APPOINTMENT_TIME_ZONE = "America/Argentina/Cordoba";
-const ACTIVE_APPOINTMENT_STATUSES = [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] as const;
 const ACTIVE_APPOINTMENT_UNIQUE_INDEXES = [
   "Appointment_doctorId_scheduledAt_active_key",
   "Appointment_patientId_scheduledAt_active_key",
@@ -48,25 +50,6 @@ const appointmentListSelect = {
     },
   },
 } as const;
-
-const weekDayByName: Record<string, WeekDay> = {
-  Monday: WeekDay.MONDAY,
-  Tuesday: WeekDay.TUESDAY,
-  Wednesday: WeekDay.WEDNESDAY,
-  Thursday: WeekDay.THURSDAY,
-  Friday: WeekDay.FRIDAY,
-  Saturday: WeekDay.SATURDAY,
-  Sunday: WeekDay.SUNDAY,
-};
-
-const appointmentDateTimeFormatter = new Intl.DateTimeFormat("en-US", {
-  timeZone: APPOINTMENT_TIME_ZONE,
-  weekday: "long",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hourCycle: "h23",
-});
 
 function patientProfileNotFoundError(): AppError {
   return new AppError({
@@ -180,39 +163,6 @@ function appointmentCannotBeCancelledError(): AppError {
   });
 }
 
-function getAppointmentLocalTime(scheduledAt: Date): {
-  weekDay: WeekDay;
-  minuteOfDay: number;
-  second: number;
-} {
-  const parts = appointmentDateTimeFormatter.formatToParts(scheduledAt);
-  const valueByType = new Map(parts.map((part) => [part.type, part.value]));
-  const weekDayName = valueByType.get("weekday");
-  const hourValue = valueByType.get("hour");
-  const minuteValue = valueByType.get("minute");
-  const secondValue = valueByType.get("second");
-
-  if (!weekDayName || !hourValue || !minuteValue || !secondValue) {
-    throw appointmentSlotUnavailableError();
-  }
-
-  const weekDay = weekDayByName[weekDayName];
-
-  if (!weekDay) {
-    throw appointmentSlotUnavailableError();
-  }
-
-  const hour = Number(hourValue);
-  const minute = Number(minuteValue);
-  const second = Number(secondValue);
-
-  return {
-    weekDay,
-    minuteOfDay: hour * 60 + minute,
-    second,
-  };
-}
-
 function isAppointmentUniqueConstraintError(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
     return false;
@@ -264,6 +214,10 @@ export async function createAppointment(input: CreateAppointmentInput, authentic
   }
 
   const appointmentLocalTime = getAppointmentLocalTime(scheduledAt);
+
+  if (!appointmentLocalTime) {
+    throw appointmentSlotUnavailableError();
+  }
   const availabilities = await prisma.availability.findMany({
     where: {
       doctorId: input.doctorId,

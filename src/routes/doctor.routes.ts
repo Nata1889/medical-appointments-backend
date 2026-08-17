@@ -5,6 +5,7 @@ import {
   deleteDoctor,
   getDoctorAppointmentById,
   getDoctorAppointments,
+  getDoctorAvailableSlots,
   getDoctorById,
   getDoctors,
   updateDoctorAppointmentStatus,
@@ -41,6 +42,13 @@ doctorRouter.patch(
   authenticate,
   authorize(UserRole.DOCTOR),
   updateDoctorAppointmentStatus,
+);
+
+doctorRouter.get(
+  "/:id/slots",
+  authenticate,
+  authorize(UserRole.PATIENT, UserRole.ADMIN),
+  getDoctorAvailableSlots,
 );
 
 doctorRouter.get(

@@ -11,6 +11,13 @@ import type {
   CreateDoctorInput,
   UpdateDoctorInput,
 } from "../schemas/doctor.schema.js";
+import {
+  ACTIVE_APPOINTMENT_STATUSES,
+  addDaysToLocalDate,
+  getAppointmentLocalDateString,
+  getAppointmentLocalTime,
+  localDateTimeToAppointmentDate,
+} from "../utils/appointment-time.js";
 
 const PASSWORD_SALT_ROUNDS = 12;
 
@@ -449,6 +456,112 @@ export async function getDoctorById(id: string) {
   }
 
   return formatDoctor(doctor);
+}
+
+export async function getDoctorAvailableSlots(id: string, date: string) {
+  const doctor = await prisma.doctor.findFirst({
+    where: {
+      id,
+      isActive: true,
+      user: {
+        isActive: true,
+      },
+      specialty: {
+        isActive: true,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!doctor) {
+    throw doctorNotFoundError();
+  }
+
+  const currentLocalDate = getAppointmentLocalDateString(new Date());
+
+  if (currentLocalDate !== null && date < currentLocalDate) {
+    return [];
+  }
+
+  const dayStart = localDateTimeToAppointmentDate(date, 0);
+
+  const localTime = getAppointmentLocalTime(dayStart);
+
+  if (!localTime) {
+    return [];
+  }
+
+  const availabilities = await prisma.availability.findMany({
+    where: {
+      doctorId: id,
+      weekDay: localTime.weekDay,
+    },
+    orderBy: [
+      {
+        startTimeMinutes: "asc",
+      },
+      {
+        slotDurationMinutes: "asc",
+      },
+    ],
+    select: {
+      startTimeMinutes: true,
+      endTimeMinutes: true,
+      slotDurationMinutes: true,
+    },
+  });
+
+  if (availabilities.length === 0) {
+    return [];
+  }
+
+  const dayEnd = localDateTimeToAppointmentDate(addDaysToLocalDate(date, 1), 0);
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      doctorId: id,
+      scheduledAt: {
+        gte: dayStart,
+        lt: dayEnd,
+      },
+      status: {
+        in: [...ACTIVE_APPOINTMENT_STATUSES],
+      },
+    },
+    select: {
+      scheduledAt: true,
+    },
+  });
+  const bookedTimes = new Set(appointments.map((appointment) => appointment.scheduledAt.getTime()));
+  const slotTimes = new Set<number>();
+  const now = Date.now();
+  const slots: { scheduledAt: Date }[] = [];
+
+  for (const availability of availabilities) {
+    for (
+      let minute = availability.startTimeMinutes;
+      minute + availability.slotDurationMinutes <= availability.endTimeMinutes;
+      minute += availability.slotDurationMinutes
+    ) {
+      const scheduledAt = localDateTimeToAppointmentDate(date, minute);
+
+      const scheduledAtTime = scheduledAt.getTime();
+
+      if (
+        scheduledAtTime <= now ||
+        bookedTimes.has(scheduledAtTime) ||
+        slotTimes.has(scheduledAtTime)
+      ) {
+        continue;
+      }
+
+      slotTimes.add(scheduledAtTime);
+      slots.push({ scheduledAt });
+    }
+  }
+
+  return slots.sort((left, right) => left.scheduledAt.getTime() - right.scheduledAt.getTime());
 }
 
 export async function getAuthenticatedDoctorAppointments(

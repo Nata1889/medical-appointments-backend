@@ -25,6 +25,27 @@ export const doctorIdParamsSchema = z
   })
   .strict();
 
+export const getDoctorSlotsQuerySchema = z
+  .object({
+    date: z
+      .string({ error: "Date is required" })
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD format")
+      .refine((value) => {
+        const [yearValue, monthValue, dayValue] = value.split("-");
+        const year = Number(yearValue);
+        const month = Number(monthValue);
+        const day = Number(dayValue);
+        const date = new Date(Date.UTC(year, month - 1, day));
+
+        return (
+          date.getUTCFullYear() === year &&
+          date.getUTCMonth() === month - 1 &&
+          date.getUTCDate() === day
+        );
+      }, "Date must be a valid calendar date"),
+  })
+  .strict();
+
 export const updateDoctorSchema = z
   .object({
     specialtyId: z
@@ -46,4 +67,5 @@ export const updateDoctorSchema = z
 
 export type CreateDoctorInput = z.infer<typeof createDoctorSchema>;
 export type DoctorIdParams = z.infer<typeof doctorIdParamsSchema>;
+export type GetDoctorSlotsQuery = z.infer<typeof getDoctorSlotsQuerySchema>;
 export type UpdateDoctorInput = z.infer<typeof updateDoctorSchema>;

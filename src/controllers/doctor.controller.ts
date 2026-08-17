@@ -9,6 +9,7 @@ import {
 import {
   createDoctorSchema,
   doctorIdParamsSchema,
+  getDoctorSlotsQuerySchema,
   updateDoctorSchema,
 } from "../schemas/doctor.schema.js";
 import {
@@ -17,6 +18,7 @@ import {
   getAuthenticatedDoctorAppointmentById as getAuthenticatedDoctorAppointmentByIdService,
   getAuthenticatedDoctorAppointments as getAuthenticatedDoctorAppointmentsService,
   getDoctorById as getDoctorByIdService,
+  getDoctorAvailableSlots as getDoctorAvailableSlotsService,
   getDoctors as getDoctorsService,
   updateAuthenticatedDoctorAppointmentStatus as updateAuthenticatedDoctorAppointmentStatusService,
   updateDoctor as updateDoctorService,
@@ -81,6 +83,32 @@ export async function getDoctorAppointments(
 
   response.status(200).json({
     data: appointments,
+  });
+}
+
+export async function getDoctorAvailableSlots(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const paramsResult = doctorIdParamsSchema.safeParse(request.params);
+
+  if (!paramsResult.success) {
+    throw validationErrorFromZod(paramsResult.error);
+  }
+
+  const queryResult = getDoctorSlotsQuerySchema.safeParse(request.query);
+
+  if (!queryResult.success) {
+    throw validationErrorFromZod(queryResult.error);
+  }
+
+  const slots = await getDoctorAvailableSlotsService(
+    paramsResult.data.id,
+    queryResult.data.date,
+  );
+
+  response.status(200).json({
+    data: slots,
   });
 }
 
