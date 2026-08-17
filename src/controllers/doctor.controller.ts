@@ -4,6 +4,7 @@ import { AppError } from "../errors/app-error.js";
 import {
   appointmentIdParamsSchema,
   getAppointmentsQuerySchema,
+  updateDoctorAppointmentStatusSchema,
 } from "../schemas/appointment.schema.js";
 import {
   createDoctorSchema,
@@ -17,6 +18,7 @@ import {
   getAuthenticatedDoctorAppointments as getAuthenticatedDoctorAppointmentsService,
   getDoctorById as getDoctorByIdService,
   getDoctors as getDoctorsService,
+  updateAuthenticatedDoctorAppointmentStatus as updateAuthenticatedDoctorAppointmentStatusService,
   updateDoctor as updateDoctorService,
 } from "../services/doctor.service.js";
 import { validationErrorFromZod } from "../utils/zod-error.js";
@@ -99,6 +101,37 @@ export async function getDoctorAppointmentById(
   const appointment = await getAuthenticatedDoctorAppointmentByIdService(
     request.user.userId,
     paramsResult.data.id,
+  );
+
+  response.status(200).json({
+    data: appointment,
+  });
+}
+
+export async function updateDoctorAppointmentStatus(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const paramsResult = appointmentIdParamsSchema.safeParse(request.params);
+
+  if (!paramsResult.success) {
+    throw validationErrorFromZod(paramsResult.error);
+  }
+
+  const bodyResult = updateDoctorAppointmentStatusSchema.safeParse(request.body);
+
+  if (!bodyResult.success) {
+    throw validationErrorFromZod(bodyResult.error);
+  }
+
+  if (!request.user) {
+    throw authenticationRequiredError();
+  }
+
+  const appointment = await updateAuthenticatedDoctorAppointmentStatusService(
+    request.user.userId,
+    paramsResult.data.id,
+    bodyResult.data.status,
   );
 
   response.status(200).json({

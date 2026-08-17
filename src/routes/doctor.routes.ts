@@ -7,6 +7,7 @@ import {
   getDoctorAppointments,
   getDoctorById,
   getDoctors,
+  updateDoctorAppointmentStatus,
   updateDoctor,
 } from "../controllers/doctor.controller.js";
 import { UserRole } from "../generated/prisma/client.js";
@@ -33,6 +34,13 @@ doctorRouter.get(
   authenticate,
   authorize(UserRole.DOCTOR),
   getDoctorAppointmentById,
+);
+
+doctorRouter.patch(
+  "/me/appointments/:id/status",
+  authenticate,
+  authorize(UserRole.DOCTOR),
+  updateDoctorAppointmentStatus,
 );
 
 doctorRouter.get(

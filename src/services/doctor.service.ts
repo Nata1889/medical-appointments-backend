@@ -1,7 +1,10 @@
 import { prisma } from "../config/prisma.js";
 import { AppError } from "../errors/app-error.js";
 import { AppointmentStatus, UserRole } from "../generated/prisma/client.js";
-import type { GetAppointmentsQuery } from "../schemas/appointment.schema.js";
+import type {
+  GetAppointmentsQuery,
+  UpdateDoctorAppointmentStatusInput,
+} from "../schemas/appointment.schema.js";
 import type {
   CreateDoctorInput,
   UpdateDoctorInput,
@@ -143,6 +146,44 @@ function appointmentNotFoundError(): AppError {
     message: "Appointment not found",
     details: null,
   });
+}
+
+function appointmentStatusTransitionNotAllowedError(): AppError {
+  return new AppError({
+    statusCode: 409,
+    code: "APPOINTMENT_STATUS_TRANSITION_NOT_ALLOWED",
+    message: "Appointment status transition is not allowed",
+    details: null,
+  });
+}
+
+function isDoctorAppointmentStatusTransitionAllowed(
+  currentStatus: AppointmentStatus,
+  targetStatus: UpdateDoctorAppointmentStatusInput["status"],
+): boolean {
+  return (
+    (currentStatus === AppointmentStatus.PENDING && targetStatus === AppointmentStatus.CONFIRMED) ||
+    (currentStatus === AppointmentStatus.CONFIRMED && targetStatus === AppointmentStatus.COMPLETED) ||
+    (currentStatus === AppointmentStatus.CONFIRMED && targetStatus === AppointmentStatus.NO_SHOW)
+  );
+}
+
+function assertDoctorAppointmentTemporalRule(
+  scheduledAt: Date,
+  targetStatus: UpdateDoctorAppointmentStatusInput["status"],
+): void {
+  const isFutureAppointment = scheduledAt.getTime() > Date.now();
+
+  if (targetStatus === AppointmentStatus.CONFIRMED && !isFutureAppointment) {
+    throw appointmentStatusTransitionNotAllowedError();
+  }
+
+  if (
+    (targetStatus === AppointmentStatus.COMPLETED || targetStatus === AppointmentStatus.NO_SHOW) &&
+    isFutureAppointment
+  ) {
+    throw appointmentStatusTransitionNotAllowedError();
+  }
 }
 
 function formatDoctor(doctor: {
@@ -395,6 +436,48 @@ export async function getAuthenticatedDoctorAppointmentById(
   }
 
   return formatDoctorAppointment(appointment);
+}
+
+export async function updateAuthenticatedDoctorAppointmentStatus(
+  authenticatedUserId: string,
+  appointmentId: string,
+  targetStatus: UpdateDoctorAppointmentStatusInput["status"],
+) {
+  const doctor = await getAuthenticatedDoctor(authenticatedUserId);
+
+  const appointment = await prisma.appointment.findFirst({
+    where: {
+      id: appointmentId,
+      doctorId: doctor.id,
+    },
+    select: doctorAppointmentSelect,
+  });
+
+  if (!appointment) {
+    throw appointmentNotFoundError();
+  }
+
+  if (appointment.status === targetStatus) {
+    return formatDoctorAppointment(appointment);
+  }
+
+  if (!isDoctorAppointmentStatusTransitionAllowed(appointment.status, targetStatus)) {
+    throw appointmentStatusTransitionNotAllowedError();
+  }
+
+  assertDoctorAppointmentTemporalRule(appointment.scheduledAt, targetStatus);
+
+  const updatedAppointment = await prisma.appointment.update({
+    where: {
+      id: appointment.id,
+    },
+    data: {
+      status: targetStatus,
+    },
+    select: doctorAppointmentSelect,
+  });
+
+  return formatDoctorAppointment(updatedAppointment);
 }
 
 export async function updateDoctor(id: string, input: UpdateDoctorInput) {

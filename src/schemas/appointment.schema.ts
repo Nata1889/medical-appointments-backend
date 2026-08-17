@@ -2,6 +2,12 @@ import { z } from "zod";
 
 import { AppointmentStatus } from "../generated/prisma/client.js";
 
+const DOCTOR_APPOINTMENT_STATUS_TARGETS = [
+  AppointmentStatus.CONFIRMED,
+  AppointmentStatus.COMPLETED,
+  AppointmentStatus.NO_SHOW,
+] as const;
+
 const isoDateTimeWithOffsetPattern =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2})$/;
 
@@ -103,6 +109,17 @@ export const appointmentIdParamsSchema = z
   })
   .strict();
 
+export const updateDoctorAppointmentStatusSchema = z
+  .object({
+    status: z.enum(DOCTOR_APPOINTMENT_STATUS_TARGETS, {
+      error: "Appointment status must be CONFIRMED, COMPLETED, or NO_SHOW",
+    }),
+  })
+  .strict();
+
 export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
 export type GetAppointmentsQuery = z.infer<typeof getAppointmentsQuerySchema>;
 export type AppointmentIdParams = z.infer<typeof appointmentIdParamsSchema>;
+export type UpdateDoctorAppointmentStatusInput = z.infer<
+  typeof updateDoctorAppointmentStatusSchema
+>;
