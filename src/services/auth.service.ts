@@ -60,7 +60,15 @@ function isEmailUniqueConstraintError(error: unknown): boolean {
 
   const target = error.meta?.target;
 
-  return Array.isArray(target) && target.includes("email");
+  if (Array.isArray(target)) {
+    return target.includes("email");
+  }
+
+  if (typeof target === "string") {
+    return target.includes("email");
+  }
+
+  return error.message.includes("email");
 }
 
 export async function registerUser(input: RegisterInput) {
@@ -80,15 +88,25 @@ export async function registerUser(input: RegisterInput) {
   const passwordHash = await bcrypt.hash(input.password, PASSWORD_SALT_ROUNDS);
 
   try {
-    return await prisma.user.create({
-      data: {
-        firstName: input.firstName,
-        lastName: input.lastName,
-        email: input.email,
-        passwordHash,
-        role: UserRole.PATIENT,
-      },
-      select: safeUserSelect,
+    return await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email,
+          passwordHash,
+          role: UserRole.PATIENT,
+        },
+        select: safeUserSelect,
+      });
+
+      await tx.patient.create({
+        data: {
+          userId: user.id,
+        },
+      });
+
+      return user;
     });
   } catch (error: unknown) {
     if (isEmailUniqueConstraintError(error)) {
